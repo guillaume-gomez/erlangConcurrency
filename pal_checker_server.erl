@@ -1,5 +1,5 @@
 -module(pal_checker_server).
--export([pal_check/1, palindrome_check/1, server/0, server2/1, client/1, test/0]).
+-export([pal_check/1, palindrome_check/1, server/0, server2/1, client/1, multi_server/0, test/0, test_multi_server/0]).
 
 pal_check(String) ->
     String == lists:reverse(String).
@@ -30,6 +30,9 @@ client(Pid) ->
     % stop the server
     Pid ! stop.
 
+client(ServerPid, ClientPid) ->
+    ServerPid ! {ClientPid, check,"Madam I\'m Adam"},
+    ServerPid ! {ClientPid, check,"This is not a palindrome"}.
 
 display_result(true, Msg) ->
   {result, io:format("\"~s\" is a palindrome~n", [Msg])};
@@ -59,6 +62,24 @@ server2(Pid) ->
     end.
 
 
+multi_server() ->
+    receive
+        {Pid, stop} ->
+            Pid ! io:format("The server has to stop~n");
+        {Pid, check, Msg} ->
+            Pid ! display_result(palindrome_check(Msg), Msg),
+            multi_server();
+        _ -> io:format("The server dont recognize the command~n")
+    end.
+
+
 test() ->
   Server = spawn(pal_checker_server, server2, [self()]),
-  pal_checker_server:client(Server).
+  client(Server).
+
+test_multi_server() ->
+    Server = spawn(pal_checker_server, multi_server, []),
+    Cl1 = spawn(pal_checker_server, client, [Server]),
+    Cl2 = spawn(pal_checker_server, client, [Server]),
+    client(Server, Cl1),
+    client(Server, Cl2).
