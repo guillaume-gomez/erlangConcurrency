@@ -1,7 +1,9 @@
 -module(week1).
--export([start/0, test/0, init/0, test_check_allocate/0, test_check_deallocate/0]).
--include_lib("eunit/include/eunit.hrl").
+-export([start/0, test/0, init/0, test_check_and_allocate/0, test_check_and_deallocate/0]).
+-export([allocate/0, deallocate/1, stop/0]).
 
+%% The Internal Help Functions used to allocate and
+%% deallocate frequencies.
 allocate({[], Allocated}, _Pid) ->
   {
     {[], Allocated},
@@ -19,16 +21,39 @@ deallocate({Free, Allocated}, Freq) ->
   {[Freq, Free], NewAllocated}.
 
 
-check_allocate(Frequencies, Pid) ->
-  case lists:keysearch(Pid, 2, Frequencies) of
-    false -> allocate(Frequencies, Pid);
-    _ -> { Frequencies, {error, already_connected}}
+%% Functional interface
+
+allocate() ->
+    week1 ! {request, self(), allocate},
+    receive
+      {reply, Reply} -> Reply
+    end.
+
+deallocate(Freq) ->
+    week1 ! {request, self(), {deallocate, Freq}},
+    receive
+      {reply, Reply} -> Reply
+    end.
+
+stop() ->
+    week1 ! {request, self(), stop},
+    receive
+      {reply, Reply} -> Reply
+    end.
+
+
+% it allows a client to hold more than one frequency; and,
+% it allows a client to deallocate a frequency that it is not currently using.
+
+check_and_allocate({_Free, Allocated}, Pid) ->
+  case lists:keysearch(Pid, 2, Allocated) of
+    false -> allocate({_Free, Allocated}, Pid);
+    _ -> { {_Free, Allocated}, {error, already_connected}}
   end.
 
 
-check_deallocate({_Free, Allocated}, Freq, Pid) ->
+check_and_deallocate({_Free, Allocated}, Freq, Pid) ->
   ElementFound = lists:keysearch(Freq, 1, Allocated),
-  io:format("~w~n", [ElementFound]),
   case validate_deallocate(ElementFound, Pid) of
     true -> {deallocate({_Free, Allocated}, Freq), {ok, Freq}};
     false -> {{_Free, Allocated}, {error, cannot_destroy}}
@@ -39,19 +64,19 @@ validate_deallocate({_, {_Freq, Pid}}, Pid) -> true;
 
 validate_deallocate({_, {_Freq, _PidNode}}, _Pid) -> false;
 
-validate_deallocate(false, Pid) -> false.
+validate_deallocate(false, _Pid) -> false.
 
 
 
 loop(Frequencies) ->
   receive
     {request, Pid, allocate} ->
-      { NewFrequencies, Reply } = check_allocate(Frequencies, Pid),
+      { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
       loop(NewFrequencies);
 
     {request, Pid, {deallocate, Freq}} ->
-      {NewFrequencies, Reply} = check_deallocate(Frequencies, Freq, Pid),
+      {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
       Pid ! { reply, Reply },
       loop(NewFrequencies);
 
@@ -61,7 +86,8 @@ loop(Frequencies) ->
 
 
 start() ->
-  ServerPid = spawn(week1, init, []).
+  ServerPid = spawn(week1, init, []),
+  register(week1, ServerPid).
 
 init() ->
   Frequencies = { get_frequencies(), [] },
@@ -73,14 +99,14 @@ init() ->
 
 test() ->
   Pid = start(),
-  register(week1, Pid),
   week1 ! {request, self(), allocate},
   receive {reply, Reply} -> Reply end.
 
-test_check_allocate() ->
+test_check_and_allocate() ->
   Allocated = [{10,toto}, {12, tata}, {13, titi}],
-  check_allocate(Allocated, tata).
+  Frequencies = {[], Allocated},
+  check_and_allocate(Frequencies, tata).
 
-test_check_deallocate() ->
+test_check_and_deallocate() ->
   Frequencies = {[], [{10,toto}, {12, tata}, {13, titi}]},
-  check_deallocate(Frequencies, 12, tata).
+  check_and_deallocate(Frequencies, 12, tata).
