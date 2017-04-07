@@ -1,6 +1,8 @@
 -module(week1).
+-include_lib("eunit/include/eunit.hrl").
 -export([start/0, test/0, init/0, test_check_and_allocate/0, test_check_and_deallocate/0]).
 -export([allocate/0, deallocate/1, stop/0]).
+
 
 %% The Internal Help Functions used to allocate and
 %% deallocate frequencies.
@@ -48,7 +50,7 @@ stop() ->
 check_and_allocate({_Free, Allocated}, Pid) ->
   case lists:keysearch(Pid, 2, Allocated) of
     false -> allocate({_Free, Allocated}, Pid);
-    _ -> { {_Free, Allocated}, {error, already_connected}}
+    _ -> { {_Free, Allocated}, {error, already_allocated}}
   end.
 
 
@@ -84,7 +86,6 @@ loop(Frequencies) ->
       Pid ! { reply, stopped }
   end.
 
-
 start() ->
   ServerPid = spawn(week1, init, []),
   register(week1, ServerPid).
@@ -93,6 +94,12 @@ init() ->
   Frequencies = { get_frequencies(), [] },
   loop(Frequencies).
 
+clear() ->
+  receive
+    _Msg -> clear()
+  after 0 ->
+    ok
+  end.
 
 % tool function
   get_frequencies() -> [10,11,12,13,14,15,16].
