@@ -47,5 +47,6 @@ init() ->
 
 test() ->
   Pid = start(),
-  Pid ! {request, self(), allocate},
+  register(week1, Pid),
+  week1 ! {request, self(), allocate},
   receive {reply, Reply} -> Reply end.
