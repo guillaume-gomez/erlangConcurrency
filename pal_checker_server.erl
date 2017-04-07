@@ -1,5 +1,5 @@
 -module(pal_checker_server).
--export([pal_check/1, palindrome_check/1, server/0, server2/1, client/1, multi_server/0, test/0, test_multi_server/0]).
+-export([pal_check/1, palindrome_check/1, server/0, server2/1, client/1, multi_server/0, test/0, test_multi_client/0, test_multi_server/0]).
 
 pal_check(String) ->
     String == lists:reverse(String).
@@ -77,9 +77,17 @@ test() ->
   Server = spawn(pal_checker_server, server2, [self()]),
   client(Server).
 
-test_multi_server() ->
+test_multi_client() ->
     Server = spawn(pal_checker_server, multi_server, []),
     Cl1 = spawn(pal_checker_server, client, [Server]),
     Cl2 = spawn(pal_checker_server, client, [Server]),
     client(Server, Cl1),
     client(Server, Cl2).
+
+test_multi_server() ->
+    Server = spawn(pal_checker_server, multi_server, []),
+    Server2 = spawn(pal_checker_server, multi_server, []),
+
+    client(Server, self()),
+    client(Server2, self()).
+
