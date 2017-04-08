@@ -29,6 +29,8 @@ allocate() ->
     week1 ! {request, self(), allocate},
     receive
       {reply, Reply} -> Reply
+      after 1000 ->
+        io:format("the server is overloaded, request  failed~n")
     end.
 
 deallocate(Freq) ->
@@ -69,8 +71,18 @@ validate_deallocate({_, {_Freq, _PidNode}}, _Pid) -> false;
 validate_deallocate(false, _Pid) -> false.
 
 
+test_check_and_allocate() ->
+  Allocated = [{10,toto}, {12, tata}, {13, titi}],
+  Frequencies = {[], Allocated},
+  check_and_allocate(Frequencies, tata).
+
+test_check_and_deallocate() ->
+  Frequencies = {[], [{10,toto}, {12, tata}, {13, titi}]},
+  check_and_deallocate(Frequencies, 12, tata).
+
 
 loop(Frequencies) ->
+  timer:sleep(5000),
   receive
     {request, Pid, allocate} ->
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
@@ -84,6 +96,9 @@ loop(Frequencies) ->
 
     {request, Pid, stop} ->
       Pid ! { reply, stopped }
+    after 5000 ->
+      clear(),
+      loop(Frequencies),
   end.
 
 start() ->
@@ -96,7 +111,9 @@ init() ->
 
 clear() ->
   receive
-    _Msg -> clear()
+    _Msg ->
+    io:format("kkkkkk"),
+    clear()
   after 0 ->
     ok
   end.
@@ -108,12 +125,3 @@ test() ->
   Pid = start(),
   week1 ! {request, self(), allocate},
   receive {reply, Reply} -> Reply end.
-
-test_check_and_allocate() ->
-  Allocated = [{10,toto}, {12, tata}, {13, titi}],
-  Frequencies = {[], Allocated},
-  check_and_allocate(Frequencies, tata).
-
-test_check_and_deallocate() ->
-  Frequencies = {[], [{10,toto}, {12, tata}, {13, titi}]},
-  check_and_deallocate(Frequencies, 12, tata).
