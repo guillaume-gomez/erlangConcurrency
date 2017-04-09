@@ -86,19 +86,21 @@ validate_deallocate({_, {_Freq, _PidNode}}, _Pid) -> false;
 validate_deallocate(false, _Pid) -> false.
 
 loop(Frequencies) ->
-  timer:sleep(5000),
   receive
     {request, Pid, allocate} ->
+      timer:sleep(5000),
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
       loop(NewFrequencies);
 
     {request, Pid, {deallocate, Freq}} ->
+      timer:sleep(5000),
       {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
       Pid ! { reply, Reply },
       loop(NewFrequencies);
 
     {request, Pid, server_list} ->
+      timer:sleep(5000),
       {FreeFrequences, _} = Frequencies,
       Pid ! { reply,  FreeFrequences},
       loop(Frequencies);
