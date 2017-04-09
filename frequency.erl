@@ -142,8 +142,3 @@ test_overload_server() ->
   timer:sleep(30000),
   clear(),
   frequency:stop().
-
-
-
-
-
