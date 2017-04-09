@@ -20,7 +20,7 @@ allocate({[Freq| Free] , Allocated}, Pid) ->
 
 deallocate({Free, Allocated}, Freq) ->
   NewAllocated = lists:keydelete(Freq, 1, Allocated),
-  {[Freq, Free], NewAllocated}.
+  {[Freq |  Free], NewAllocated}.
 
 
 %% Functional interface
@@ -98,7 +98,7 @@ loop(Frequencies) ->
       Pid ! { reply, stopped }
     after 5000 ->
       clear(),
-      loop(Frequencies),
+      loop(Frequencies)
   end.
 
 start() ->
