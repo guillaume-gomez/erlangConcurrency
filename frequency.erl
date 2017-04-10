@@ -1,5 +1,5 @@
 -module(frequency).
--export([start/0, init/0, clear/0, client/2]).
+-export([start/0, init/0, clear/0, client/2, client/0]).
 -export([allocate/0, deallocate/1, stop/0, available_frequencies/0, test_overload_server/0]).
 
 
@@ -12,8 +12,8 @@ allocate({[], Allocated}, _Pid) ->
   };
 
 allocate({[Freq| Free] , Allocated}, Pid) ->
+  link(Pid),
   {
-    link(Pid),
     {Free, [{Freq, Pid} | Allocated]},
     {ok, Freq}
   }.
@@ -32,7 +32,9 @@ allocate() ->
     clear(),
     frequency ! {request, self(), allocate},
     receive
-      {reply, Reply} -> Reply
+      {reply, Reply} -> 
+        io:format("Reply ~w ~n", [Reply]),
+        Reply
       after 1000 ->
         io:format("the server is overloaded, request  failed~n")
     end.
@@ -41,7 +43,9 @@ deallocate(Freq) ->
     clear(),
     frequency ! {request, self(), {deallocate, Freq}},
     receive
-      {reply, Reply} -> Reply
+      {reply, Reply} -> 
+      io:format("Reply ~w ~n", [Reply]),
+      Reply
     after 1000 ->
       io:format("the server is overloaded, request  failed~n")
     end.
@@ -50,7 +54,9 @@ stop() ->
     clear(),
     frequency ! {request, self(), stop},
     receive
-      {reply, Reply} -> Reply
+      {reply, Reply} -> 
+      io:format("Reply ~w ~n", [Reply]),
+      Reply
     after 1000 ->
       io:format("the server is overloaded, request  failed~n")
     end.
@@ -148,22 +154,21 @@ clear() ->
 client() ->
   allocate(),
   timer:sleep(1000),
-  Frequency = rand:uniform(length(get_frequencies())) + 10,
+  Frequency = random:uniform(length(get_frequencies())) + 10,
   deallocate(Frequency).
 
 
-client(NbAlloc, NbDealloc) ->
-  allocate(),
-  client(NbAlloc -1, NbDealloc);
+client(0, 0) ->
+  ok;
 
-client(0, NbDealloc) when NbDealloc > 0 ->
-  Frequency = rand:uniform(length(get_frequencies())) + 10,
+client(0, NbDealloc) ->
+  Frequency = random:uniform(length(get_frequencies())) + 10,
   deallocate(Frequency),
   client(0, NbDealloc -1);
 
-client(0, 0) ->
-  ok.
-
+client(NbAlloc, NbDealloc) ->
+  allocate(),
+  client(NbAlloc -1, NbDealloc).
 
 
 % function to show the problem with an overload server
