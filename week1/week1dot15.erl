@@ -1,4 +1,4 @@
--module(week1).
+-module(week1dot15).
 -include_lib("eunit/include/eunit.hrl").
 -export([start/0, test/0, init/0, test_check_and_allocate/0, test_check_and_deallocate/0]).
 -export([allocate/0, deallocate/1, stop/0]).
