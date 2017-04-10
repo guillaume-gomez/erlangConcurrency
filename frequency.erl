@@ -1,5 +1,5 @@
 -module(frequency).
--export([start/0, init/0, clear/0]).
+-export([start/0, init/0, clear/0, client/2]).
 -export([allocate/0, deallocate/1, stop/0, available_frequencies/0, test_overload_server/0]).
 
 
@@ -129,7 +129,7 @@ start() ->
   register(frequency, ServerPid).
 
 init() ->
-  process_flag(trap_exit, true) % atomic registration
+  process_flag(trap_exit, true), % atomic registration
   Frequencies = { get_frequencies(), [] },
   loop(Frequencies).
 
@@ -144,6 +144,26 @@ clear() ->
 
 % tool function
   get_frequencies() -> [10,11,12,13,14,15,16].
+
+client() ->
+  allocate(),
+  timer:sleep(1000),
+  Frequency = rand:uniform(length(get_frequencies())) + 10,
+  deallocate(Frequency).
+
+
+client(NbAlloc, NbDealloc) ->
+  allocate(),
+  client(NbAlloc -1, NbDealloc);
+
+client(0, NbDealloc) when NbDealloc > 0 ->
+  Frequency = rand:uniform(length(get_frequencies())) + 10,
+  deallocate(Frequency),
+  client(0, NbDealloc -1);
+
+client(0, 0) ->
+  ok.
+
 
 
 % function to show the problem with an overload server
