@@ -32,7 +32,7 @@ allocate() ->
     clear(),
     frequency ! {request, self(), allocate},
     receive
-      {reply, Reply} -> 
+      {reply, Reply} ->
         io:format("Reply ~w ~n", [Reply]),
         Reply
       after 1000 ->
@@ -43,7 +43,7 @@ deallocate(Freq) ->
     clear(),
     frequency ! {request, self(), {deallocate, Freq}},
     receive
-      {reply, Reply} -> 
+      {reply, Reply} ->
       io:format("Reply ~w ~n", [Reply]),
       Reply
     after 1000 ->
