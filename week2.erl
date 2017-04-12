@@ -1,6 +1,6 @@
 -module(week2).
--export([start/0, start_with_monitor/0, init/0, clear/0, client/2, client/0]).
--export([allocate/0, deallocate/1, stop/0, available_frequencies/0, test_multi_client/0]).
+-export([start/0, init/0, clear/0, client/2, client/0]).
+-export([allocate/0, deallocate/1, stop/0, available_frequencies/0, create_supervisor/0, supervisor_start/0, supervisor_init/0]).
 
 
 %% The Internal Help Functions used to allocate and
@@ -133,14 +133,9 @@ exited({Free, Allocated}, Pid) ->
 start() ->
   ServerPid = spawn(week2, init, []),
   io:format("~w ~n",[ServerPid]),
-  register(frequency, ServerPid).
-
-start_with_monitor() ->
-  ServerPid = spawn_link(week2, init, []),
-  io:format("~w ~n",[ServerPid]),
   register(frequency, ServerPid),
-  timer:sleep(5000),
-  exit(ServerPid, "Kill server").
+  ServerPid.
+
 
 init() ->
   process_flag(trap_exit, true), % atomic registration
@@ -180,16 +175,32 @@ client(NbAlloc, NbDealloc) ->
   allocate(),
   client(NbAlloc -1, NbDealloc).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-test_multi_client() ->
-  %start(),
-  spawn(frequency, client, []),
-  spawn(frequency, client, [200,190]).
+supervisor_start() -> 
+    register(supervisor,
+       spawn(week2,supervisor_init,[])),
+    ok.
+
+supervisor_init() ->
+  process_flag(trap_exit,true),    %Trap exits
+  create_supervisor().
+
+create_supervisor() ->
+  ServerPid = spawn_link(week2, init, []),
+  register(frequency, ServerPid),
+  loop_supervisor(ServerPid).
 
 
-create_supervisors() ->
-  SupervisorPid = spawn_link(week2, init_supervisor, []).
-
-init_supervisor() ->
- process_flag(trap_exit, true), % atomic registration
- 
+loop_supervisor(Pid) ->
+  io:format("CALLED"),
+  receive
+    {'EXIT', Pid, _Reason} ->
+      io:format("ERROR IN THE SERVER ~w ~n",[Pid]);
+      create_supervisor();
+    stop -> 
+      io:format("SUOERNVDJ ~n"),
+      stop()
+  end. 
