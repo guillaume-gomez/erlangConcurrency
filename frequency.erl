@@ -1,6 +1,6 @@
 -module(frequency).
 -export([start/0, init/0, clear/0, client/2, client/0]).
--export([allocate/0, deallocate/1, stop/0, available_frequencies/0, test_overload_server/0]).
+-export([allocate/0, deallocate/1, stop/0, available_frequencies/0, test_overload_server/0, test_multi_client/0]).
 
 
 %% The Internal Help Functions used to allocate and
@@ -132,6 +132,7 @@ exited({Free, Allocated}, Pid) ->
 
 start() ->
   ServerPid = spawn(frequency, init, []),
+  io:format("~w ~n",[ServerPid]),
   register(frequency, ServerPid).
 
 init() ->
@@ -163,12 +164,20 @@ client(0, 0) ->
 
 client(0, NbDealloc) ->
   Frequency = random:uniform(length(get_frequencies())) + 10,
+  timer:sleep(1000),
   deallocate(Frequency),
   client(0, NbDealloc -1);
 
 client(NbAlloc, NbDealloc) ->
+  timer:sleep(1000),
   allocate(),
   client(NbAlloc -1, NbDealloc).
+
+
+test_multi_client() ->
+  start(),
+  spawn(frequency, client, []),
+  spawn(frequency, client, [40,26]).
 
 
 % function to show the problem with an overload server
