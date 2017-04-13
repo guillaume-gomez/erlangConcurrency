@@ -135,7 +135,7 @@ exited({Free, Allocated}, Pid) ->
   end.
 
 start() ->
-  ServerPid = spawn(week2, init, []),
+  ServerPid = spawn(?MODULE, init, []),
   io:format("~w ~n",[ServerPid]),
   register(frequency, ServerPid),
   ServerPid.
@@ -169,7 +169,7 @@ notify_supervisor(Frequencies) ->
 
 supervisor_start() ->
     register(supervisor,
-       spawn(week2,supervisor_init,[])),
+       spawn(?MODULE,supervisor_init,[])),
     ok.
 
 supervisor_init() ->
@@ -178,7 +178,7 @@ supervisor_init() ->
   register_frequency_server(State).
 
 register_frequency_server(State) ->
-  ServerPid = spawn_link(week2, init_frequency_server, [State]),
+  ServerPid = spawn_link(?MODULE, init_frequency_server, [State]),
   register(frequency, ServerPid),
   loop_supervisor(ServerPid, State).
 
@@ -186,7 +186,7 @@ register_frequency_server(State) ->
 loop_supervisor(Pid, State) ->
   receive
     {'EXIT', Pid, _Reason} ->
-      register_frequency_server(State),
+      register_frequency_server(State);
     {server_notification, Pid, Frequencies} ->
       loop_supervisor(Pid, Frequencies);
     stop ->
