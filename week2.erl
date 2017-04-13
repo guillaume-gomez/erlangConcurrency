@@ -1,6 +1,6 @@
 -module(week2).
 -export([start/0, init/0, clear/0, client/2, client/0]).
--export([allocate/0, deallocate/1, stop/0, available_frequencies/0, create_supervisor/0, supervisor_start/0, supervisor_init/0]).
+-export([allocate/0, deallocate/1, stop/0, available_frequencies/0, register_frequency_server/0, supervisor_start/0, supervisor_init/0]).
 
 
 %% The Internal Help Functions used to allocate and
@@ -176,31 +176,28 @@ client(NbAlloc, NbDealloc) ->
   client(NbAlloc -1, NbDealloc).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%
+%% Supervisor code
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-supervisor_start() -> 
+supervisor_start() ->
     register(supervisor,
        spawn(week2,supervisor_init,[])),
     ok.
 
 supervisor_init() ->
-  process_flag(trap_exit,true),    %Trap exits
-  create_supervisor().
+  process_flag(trap_exit,true), %Trap exits
+  register_frequency_server().
 
-create_supervisor() ->
+register_frequency_server() ->
   ServerPid = spawn_link(week2, init, []),
   register(frequency, ServerPid),
   loop_supervisor(ServerPid).
 
 
 loop_supervisor(Pid) ->
-  io:format("CALLED"),
   receive
     {'EXIT', Pid, _Reason} ->
-      io:format("ERROR IN THE SERVER ~w ~n",[Pid]);
-      create_supervisor();
-    stop -> 
-      io:format("SUOERNVDJ ~n"),
+      register_frequency_server();
+    stop ->
       stop()
-  end. 
+  end.
