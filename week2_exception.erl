@@ -103,33 +103,42 @@ loop(Frequencies) ->
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      wrap_loop(NewFrequencies, Pid);
 
     {request, Pid, {deallocate, Freq}} ->
       {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
       Pid ! { reply, Reply },
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      wrap_loop(NewFrequencies, Pid);
 
     {request, Pid, server_list} ->
       {FreeFrequences, _} = Frequencies,
       Pid ! { reply,  FreeFrequences},
       notify_supervisor(Frequencies),
-      loop(Frequencies);
+      wrap_loop(Frequencies, Pid);
 
     % catch a possible error
     {'EXIT', Pid, _Reason} ->
       NewFrequencies = exited(Frequencies, Pid),
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      wrap_loop(NewFrequencies, Pid);
 
     {request, Pid, stop} ->
       Pid ! { reply, stopped };
 
     {request, Pid, _} ->
-      throw(unknown_message);
+      throw(unknown_message),
+      wrap_loop(Frequencies, Pid)
   end.
 
+
+wrap_loop(Frequencies, Pid) ->
+  try
+    loop(Frequencies)
+  catch
+    throw:unknown_message -> Pid ! {error, unknown_message};
+    throw:cannot_destroy -> Pid ! {error, cannot_destroy}
+  end.
 
 exited({Free, Allocated}, Pid) ->
   case lists:keysearch(Pid, 2, Allocated) of
