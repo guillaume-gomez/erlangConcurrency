@@ -1,6 +1,6 @@
 -module(week2).
--export([start/0, init/0, clear/0, client/2, client/0]).
--export([allocate/0, deallocate/1, stop/0, available_frequencies/0, register_frequency_server/0, supervisor_start/0, supervisor_init/0]).
+-export([start/0, init/0, clear/0]).
+-export([allocate/0, deallocate/1, stop/0, available_frequencies/0, register_frequency_server/1, supervisor_start/0, supervisor_init/0, init_frequency_server/1]).
 
 
 %% The Internal Help Functions used to allocate and
@@ -54,11 +54,11 @@ stop() ->
     clear(),
     frequency ! {request, self(), stop},
     receive
-      {reply, Reply} -> 
+      {reply, Reply} ->
       io:format("Reply ~w ~n", [Reply]),
       Reply
     after 1000 ->
-      io:format("the server is overloaded, request  failed~n")
+      io:format("the server is overloaded, request failed~n")
     end.
 
 % add a tool function to fetch available frequencies
@@ -68,7 +68,7 @@ available_frequencies() ->
   receive
       {reply, Reply} -> Reply
   after 1000 ->
-    io:format("the server is overloaded, request  failed~n")
+    io:format("the server is overloaded, request failed~n")
   end.
 
 % it allows a client to deallocate a frequency that it is not currently using.
@@ -99,21 +99,25 @@ loop(Frequencies) ->
     {request, Pid, allocate} ->
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
+      notify_supervisor(NewFrequencies),
       loop(NewFrequencies);
 
     {request, Pid, {deallocate, Freq}} ->
       {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
       Pid ! { reply, Reply },
+      notify_supervisor(NewFrequencies),
       loop(NewFrequencies);
 
     {request, Pid, server_list} ->
       {FreeFrequences, _} = Frequencies,
       Pid ! { reply,  FreeFrequences},
+      notify_supervisor(Frequencies),
       loop(Frequencies);
 
     % catch a possible error
     {'EXIT', Pid, _Reason} ->
       NewFrequencies = exited(Frequencies, Pid),
+      notify_supervisor(NewFrequencies),
       loop(NewFrequencies);
 
     {request, Pid, stop} ->
@@ -153,31 +157,15 @@ clear() ->
 
 % tool function
   get_frequencies() -> [10,11,12,13,14,15,16].
-
-client() ->
-  allocate(),
-  timer:sleep(1000),
-  Frequency = random:uniform(length(get_frequencies())) + 10,
-  deallocate(Frequency).
-
-
-client(0, 0) ->
-  ok;
-
-client(0, NbDealloc) ->
-  Frequency = random:uniform(length(get_frequencies())) + 10,
-  timer:sleep(1000),
-  deallocate(Frequency),
-  client(0, NbDealloc -1);
-
-client(NbAlloc, NbDealloc) ->
-  timer:sleep(1000),
-  allocate(),
-  client(NbAlloc -1, NbDealloc).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Supervisor code
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+notify_supervisor(Frequencies) ->
+  case whereis(supervisor) of
+    undefined -> nothing_to_send;
+    _ -> supervisor ! {server_notification, whereis(frequency), Frequencies}
+  end.
 
 supervisor_start() ->
     register(supervisor,
@@ -186,18 +174,26 @@ supervisor_start() ->
 
 supervisor_init() ->
   process_flag(trap_exit,true), %Trap exits
-  register_frequency_server().
+  State = { get_frequencies(), [] },
+  register_frequency_server(State).
 
-register_frequency_server() ->
-  ServerPid = spawn_link(week2, init, []),
+register_frequency_server(State) ->
+  ServerPid = spawn_link(week2, init_frequency_server, [State]),
   register(frequency, ServerPid),
-  loop_supervisor(ServerPid).
+  loop_supervisor(ServerPid, State).
 
 
-loop_supervisor(Pid) ->
+loop_supervisor(Pid, State) ->
   receive
     {'EXIT', Pid, _Reason} ->
-      register_frequency_server();
+      register_frequency_server(State),
+    {server_notification, Pid, Frequencies} ->
+      loop_supervisor(Pid, Frequencies);
     stop ->
       stop()
   end.
+
+init_frequency_server(State) ->
+  process_flag(trap_exit, true), % atomic registration
+  loop(State).
+
