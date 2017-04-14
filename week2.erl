@@ -72,7 +72,7 @@ available_frequencies() ->
   end.
 
 % it allows a client to deallocate a frequency that it is not currently using.
-% I remove the validation in allocation (a client to hold more than one frequency)
+% I remove the validation in allocation (hold more than one frequency)
 check_and_allocate({_Free, Allocated}, Pid) ->
   case lists:keysearch(Pid, 2, Allocated) of
     false -> allocate({_Free, Allocated}, Pid);
