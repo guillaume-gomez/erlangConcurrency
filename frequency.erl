@@ -12,7 +12,7 @@
 
 -module(frequency).
 -export([start_router/0, start/1, allocate/0, deallocate/1, stop/0, get_frequencies/1]).
--export([init/1, init_router/0, next_server/2]).
+-export([init/1, init_router/0, next_server/2, get_free_server/1]).
 
 %% These are the start functions used to create and
 %% initialize the server.
@@ -32,7 +32,7 @@ start_router() ->
 init_router() ->
   ServerPid1 = start(1),
   ServerPid2 = start(2),
-  loop_router([ServerPid1, ServerPid2], 1).
+  loop_router_round_robin([ServerPid1, ServerPid2], 1).
 
 
 get_frequencies(N) ->
@@ -41,21 +41,64 @@ get_frequencies(N) ->
 % Hard Coded
 get_frequencies() -> [10,11,12,13,14,15].
 
-loop_router(Servers, Index) ->
+loop_router_round_robin(Servers, Index) ->
   receive
     {request, Pid, allocate} ->
       ServAllocator = get_server_by_index(Servers, Index),
       ServAllocator ! {request, Pid, allocate},
-      loop_router(Servers, next_server(Servers, Index));
+      loop_router_round_robin(Servers, next_server(Servers, Index));
     {request, Pid, {deallocate, Freq}} ->
       ServPid = get_server_pid(Freq, Servers),
       ServPid ! {request, Pid, {deallocate, Freq}},
-      loop_router(Servers, Index);
+      loop_router_round_robin(Servers, Index);
     {request, Pid, stop} ->
       stop_servers(Servers),
       Pid ! {reply, stopped}
   end.
 
+
+loop_router_max_servers(Servers, Stats) ->
+  receive
+    {request, Pid, allocate} ->
+      ServAllocator = get_free_server(Stats),
+      ServAllocator ! {request, Pid, allocate},
+      loop_router_round_robin(Servers, increase_stat(Stats, ServAllocator));
+    {request, Pid, {deallocate, Freq}} ->
+      ServPid = get_server_pid(Freq, Servers),
+      ServPid ! {request, Pid, {deallocate, Freq}},
+      loop_router_round_robin(Servers, decrease_stat(Stats, ServPid));
+    {request, Pid, stop} ->
+      stop_servers(Servers),
+      Pid ! {reply, stopped}
+  end.
+
+
+min([], _Val, Pid) ->
+  {Pid};
+
+min([{PidServer, Val}| T], MinValue, Pid) when Val < MinValue ->
+  min(T, Val, PidServer);
+
+min([{_PidServer, _Val}| T], MinValue, Pid) ->
+  min(T, MinValue, Pid).
+
+get_free_server(Stats) ->
+  {Val, Pid} = lists:nth(1, Stats),
+  min(Stats, Val, Pid).
+
+update_state([{Pid, Value}| T], Pid, Fn) ->
+  [{Pid, Fn(Value)} | update_state(T, Pid, Fn) ];
+
+update_state([{Pid, Value}| T], Pid2, _Fn) ->
+  [{Pid, Value} | update_state(T, Pid2, _Fn) ];
+
+update_state([], _Pid, _Fn) -> [].
+
+increase_stat(Stats, Pid) ->
+  update_state(Stats, Pid, fun (X) -> X + 1 end).
+
+decrease_stat(Stats, Pid) ->
+  update_state(Stats, Pid, fun (X) -> X - 1 end).
 
 get_server_pid(Freq, Servers) when Freq < 10 ->
   lists:nth(1, Servers);
