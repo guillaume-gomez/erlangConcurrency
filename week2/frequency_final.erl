@@ -1,7 +1,12 @@
 -module(frequency_final).
--export([start/0, init/0, clear/0, inject/1]).
--export([allocate/0, deallocate/1, stop/0, available_frequencies/0, register_frequency_server/1, supervisor_start/0, supervisor_init/0, init_frequency_server/1]).
+-export([start/0, init/0, clear/0]).
+-export([allocate/0, deallocate/1, inject/1,  stop/0, available_frequencies/0, register_frequency_server/1, supervisor_start/0, supervisor_init/0, init_frequency_server/1]).
+-export([loop/1]).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% this code can be hot reload
+%% Note : to soft_purge code, make sure that none of the client is linked(client have deallocated their frequency)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% The Internal Help Functions used to allocate and
 %% deallocate frequencies.
@@ -117,31 +122,31 @@ loop(Frequencies) ->
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      frequency_final:loop(NewFrequencies);
 
     {request, Pid, {deallocate, Freq}} ->
       {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
       Pid ! { reply, Reply },
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      frequency_final:loop(NewFrequencies);
 
     {request, Pid, server_list} ->
       {FreeFrequences, _} = Frequencies,
       Pid ! { reply,  FreeFrequences},
       notify_supervisor(Frequencies),
-      loop(Frequencies);
+      frequency_final:loop(Frequencies);
 
     {request, Pid, {inject, Freqs}} ->
       {NewFrequencies, Reply} = inject(Frequencies, Freqs),
       Pid ! { reply, Reply},
       notify_supervisor(Frequencies),
-      loop(NewFrequencies);
+      frequency_final:loop(NewFrequencies);
 
     % catch a possible error
     {'EXIT', Pid, _Reason} ->
       NewFrequencies = exited(Frequencies, Pid),
       notify_supervisor(NewFrequencies),
-      loop(NewFrequencies);
+      frequency_final:loop(NewFrequencies);
 
     {request, Pid, stop} ->
       Pid ! { reply, stopped }
