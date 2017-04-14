@@ -157,9 +157,18 @@ clear() ->
 
 % tool function
   get_frequencies() -> [10,11,12,13,14,15,16].
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Supervisor code
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% How to use it :
+% week2:supervisor_start().
+%
+% Then the server can answer to client queries.
+% If you kill the frequency server, the supervisor create another one with the current state of the previous server instance.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % notify the supervisor that the frequencies server has changed (only if supervisor exist)
 notify_supervisor(Frequencies) ->
@@ -197,4 +206,6 @@ loop_supervisor(Pid, State) ->
 init_frequency_server(State) ->
   process_flag(trap_exit, true), % atomic registration
   loop(State).
+
+
 
