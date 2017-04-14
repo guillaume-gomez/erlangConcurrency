@@ -161,6 +161,7 @@ clear() ->
 %% Supervisor code
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% notify the supervisor that the frequencies server has changed (only if supervisor exist)
 notify_supervisor(Frequencies) ->
   case whereis(supervisor) of
     undefined -> nothing_to_send;
