@@ -86,8 +86,7 @@ check_and_deallocate({_Free, Allocated}, Freq, Pid) ->
     true ->
       {deallocate({_Free, Allocated}, Freq), {ok, Freq}};
     false ->
-      throw(cannot_destroy),
-      {{_Free, Allocated}, {error, cannot_destroy}}
+      throw(cannot_destroy)
   end.
 
 
@@ -97,48 +96,54 @@ validate_deallocate({_, {_Freq, _PidNode}}, _Pid) -> false;
 
 validate_deallocate(false, _Pid) -> false.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% I use exception here but it makes the code dirtier, and difficult to read.
+%% So in my opinion, using default case as in previous version of check_and_desallocate is better than exception process in message passing system
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 loop(Frequencies) ->
   receive
     {request, Pid, allocate} ->
       { NewFrequencies, Reply } = allocate(Frequencies, Pid),
       Pid ! {reply, Reply},
       notify_supervisor(NewFrequencies),
-      wrap_loop(NewFrequencies, Pid);
+      loop(NewFrequencies);
 
     {request, Pid, {deallocate, Freq}} ->
-      {NewFrequencies, Reply} = check_and_deallocate(Frequencies, Freq, Pid),
+      {NewFrequencies, Reply} = inspect(fun() -> check_and_deallocate(Frequencies, Freq, Pid) end, Frequencies),
       Pid ! { reply, Reply },
       notify_supervisor(NewFrequencies),
-      wrap_loop(NewFrequencies, Pid);
+      loop(NewFrequencies);
 
     {request, Pid, server_list} ->
       {FreeFrequences, _} = Frequencies,
       Pid ! { reply,  FreeFrequences},
       notify_supervisor(Frequencies),
-      wrap_loop(Frequencies, Pid);
+      loop(Frequencies);
 
     % catch a possible error
     {'EXIT', Pid, _Reason} ->
       NewFrequencies = exited(Frequencies, Pid),
       notify_supervisor(NewFrequencies),
-      wrap_loop(NewFrequencies, Pid);
+      loop(NewFrequencies);
 
     {request, Pid, stop} ->
       Pid ! { reply, stopped };
 
     {request, Pid, _} ->
-      throw(unknown_message),
-      wrap_loop(Frequencies, Pid)
+      {_, Reply } = inspect(fun() -> throw(unknown_message) end, Frequencies),
+      Pid ! Reply,
+      loop(Frequencies)
   end.
 
-
-wrap_loop(Frequencies, Pid) ->
-  try
-    loop(Frequencies)
-  catch
-    throw:unknown_message -> Pid ! {error, unknown_message};
-    throw:cannot_destroy -> Pid ! {error, cannot_destroy}
-  end.
+  inspect(Function, Frequencies) ->
+    try Function() of
+      {NewFrequencies, Reply} -> {NewFrequencies, Reply}
+    catch
+      throw:unknown_message -> {Frequencies, {error, unknown_message_bro}};
+      throw:cannot_destroy -> {Frequencies, {error, cannot_destroy_motherfucker}}
+    end.
 
 exited({Free, Allocated}, Pid) ->
   case lists:keysearch(Pid, 2, Allocated) of
@@ -151,7 +156,6 @@ exited({Free, Allocated}, Pid) ->
 
 start() ->
   ServerPid = spawn(?MODULE, init, []),
-  io:format("~w ~n",[ServerPid]),
   register(frequency, ServerPid),
   ServerPid.
 
