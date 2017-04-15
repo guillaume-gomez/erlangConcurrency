@@ -12,7 +12,7 @@
 
 -module(frequency).
 -export([start_router/0, start/1, allocate/0, deallocate/1, stop/0, get_frequencies/1]).
--export([init/1, init_router/0, next_server/2, get_free_server/1]).
+-export([init/1, start_router_max_server/0, init_router_max_server/0, init_router_round_robin/0, start_router_round_robin/0]).
 
 %% These are the start functions used to create and
 %% initialize the server.
@@ -24,12 +24,20 @@ init(Freqs) ->
   Frequencies = {Freqs, []},
   loop(Frequencies).
 
-% TODO allows more than two nodes
-start_router() ->
-  Pid = spawn(frequency, init_router, []),
+start_router_max_server() ->
+  Pid = spawn(frequency, init_router_max_server, []),
   register(frequency, Pid).
 
-init_router() ->
+start_router_round_robin() ->
+  Pid = spawn(frequency, init_router_round_robin, []),
+  register(frequency, Pid).
+
+init_router_max_server() ->
+  ServerPid1 = start(1),
+  ServerPid2 = start(2),
+  loop_router_max_servers([ServerPid1, ServerPid2], gen_stats([ServerPid1, ServerPid2])).
+
+init_router_round_robin() ->
   ServerPid1 = start(1),
   ServerPid2 = start(2),
   loop_router_round_robin([ServerPid1, ServerPid2], 1).
@@ -62,19 +70,22 @@ loop_router_max_servers(Servers, Stats) ->
     {request, Pid, allocate} ->
       ServAllocator = get_free_server(Stats),
       ServAllocator ! {request, Pid, allocate},
-      loop_router_round_robin(Servers, increase_stat(Stats, ServAllocator));
+      loop_router_max_servers(Servers, increase_stat(Stats, ServAllocator));
     {request, Pid, {deallocate, Freq}} ->
       ServPid = get_server_pid(Freq, Servers),
       ServPid ! {request, Pid, {deallocate, Freq}},
-      loop_router_round_robin(Servers, decrease_stat(Stats, ServPid));
+      loop_router_max_servers(Servers, decrease_stat(Stats, ServPid));
     {request, Pid, stop} ->
       stop_servers(Servers),
       Pid ! {reply, stopped}
   end.
 
 
+gen_stats(Servers) ->
+  lists:map(fun (X) -> {X, 6} end, Servers).
+
 min([], _Val, Pid) ->
-  {Pid};
+  Pid;
 
 min([{PidServer, Val}| T], MinValue, Pid) when Val < MinValue ->
   min(T, Val, PidServer);
